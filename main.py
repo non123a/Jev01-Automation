@@ -4,8 +4,8 @@ from app.market.mt5_provider import MT5ExnessProvider
 from app.market.bar_builder import MultiTimeframeBarBuilder
 from app.liquidity.multi_swing_detector import MultiTimeframeSwingDetector
 from app.liquidity.liquidity_map import LiquidityMap
-
-from app.liquidity.sweep_detector import SweepDetector
+from app.liquidity.candle_sweep_engine import CandleSweepEngine
+# from app.liquidity.sweep_detector import SweepDetector
 TIMEFRAMES = {
     "1M": 200,
     "5M": 200,
@@ -32,8 +32,12 @@ def main():
     )
 
     liquidity_map = LiquidityMap()
-    sweep_detector = SweepDetector(
-        tolerance=0.001
+    # sweep_detector = SweepDetector(
+    #     tolerance=0.001
+    # )
+    candle_sweep_engine = CandleSweepEngine(
+        lookback=10,
+        strength_multiple=1.5,
     )
     print("=" * 60)
     print("JEV01-AUTOMATE LIQUIDITY MAP")
@@ -81,7 +85,7 @@ def main():
                     liquidity_map.add_swing(
                         swing
                     )
-
+                candle_sweep_engine.update(bar, [])
         print()
         print(
             "Historical liquidity levels:"
@@ -113,32 +117,43 @@ def main():
         # --------------------------------------------------
         # LIVE
         # --------------------------------------------------
-
+        live_timeframes_initialized = set()
         for tick in provider.stream(
             interval_seconds=0.1
         ):
-            sweeps = sweep_detector.update(
-                tick,
-                liquidity_map
-            )
+            # sweeps = sweep_detector.update(
+            #     tick,
+            #     liquidity_map
+            # )
 
-            for sweep in sweeps:
+            # for sweep in sweeps:
 
-                print(
-                    f"LIQUIDITY SWEPT | "
-                    f"{sweep.liquidity_timeframe} | "
-                    f"{sweep.liquidity_direction.upper()} | "
-                    f"level={sweep.liquidity_price:.3f} | "
-                    f"sweep={sweep.sweep_price:.3f} | "
-                    f"distance={sweep.distance_from_level:.3f}"
-                )
+            #     print(
+            #         f"LIQUIDITY SWEPT | "
+            #         f"{sweep.liquidity_timeframe} | "
+            #         f"{sweep.liquidity_direction.upper()} | "
+            #         f"level={sweep.liquidity_price:.3f} | "
+            #         f"sweep={sweep.sweep_price:.3f} | "
+            #         f"distance={sweep.distance_from_level:.3f}"
+            #     )
 
             completed_bars = (
                 bar_builder.update(tick)
             )
 
             for bar in completed_bars:
+                # Skip the first bar emitted for each timeframe.
+                # It may be incomplete because the builder started mid-candle.
+                if bar.timeframe not in live_timeframes_initialized:
+                    live_timeframes_initialized.add(bar.timeframe)
 
+                    print(
+                        f"STARTUP BAR SKIPPED | "
+                        f"{bar.timeframe} | "
+                        f"{bar.start.isoformat()} | "
+                        f"{bar.end.isoformat()}"
+                    )
+                    continue
                 swings = swing_detector.update(
                     bar
                 )
@@ -156,6 +171,25 @@ def main():
                         f"{swing.price:.3f} | "
                         f"{swing.timestamp.isoformat()}"
                     )
+                sweeps = candle_sweep_engine.update(
+                    bar,
+                    liquidity_map.active_levels(),
+                )
+
+                for sweep in sweeps:
+                    print(
+                        f"CONFIRMED CANDLE SWEEP | "
+                        f"{sweep.timeframe} | "
+                        f"{sweep.liquidity_direction.upper()} | "
+                        f"type={sweep.confirmation_type} | "
+                        f"level={sweep.liquidity_price:.3f} | "
+                        f"sweep_extreme={sweep.sweep_extreme:.3f} | "
+                        f"sweep_bar={sweep.sweep_bar_start.isoformat()} | "
+                        f"confirmation_bar={sweep.confirmation_bar_start.isoformat()} | "
+                        f"confirmed_at={sweep.confirmed_at.isoformat()}"
+                    )
+
+                    liquidity_map.mark_swept(sweep.liquidity_id)
         
     except KeyboardInterrupt:
 

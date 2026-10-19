@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import deque
 
@@ -10,71 +10,44 @@ class SwingDetector:
 
     def __init__(self, strength: int = 2):
         self.strength = strength
-        self.bars = deque(
-            maxlen=(strength * 2) + 1
-        )
+        self.bars = deque(maxlen=(strength * 2) + 1)
         self.counter = 0
 
-    def update(
-        self,
-        bar: CompletedBar,
-    ) -> list[SwingPoint]:
-
+    def update(self, bar: CompletedBar) -> list[SwingPoint]:
         self.bars.append(bar)
-
         required = (self.strength * 2) + 1
 
         if len(self.bars) < required:
             return []
 
         bars = list(self.bars)
-
-        center_index = self.strength
-        center = bars[center_index]
-
-        left = bars[:center_index]
-        right = bars[center_index + 1:]
-
+        center = bars[self.strength]
+        neighbors = bars[:self.strength] + bars[self.strength + 1:]
+        confirmed_at = bars[-1].end
         swings = []
 
-        is_swing_high = all(
-            center.high > other.high
-            for other in left + right
-        )
-
-        is_swing_low = all(
-            center.low < other.low
-            for other in left + right
-        )
-
-        if is_swing_high:
-
+        if all(center.high > other.high for other in neighbors):
             self.counter += 1
+            swings.append(SwingPoint(
+                swing_id=f"SWING_HIGH_{self.counter}",
+                symbol=center.symbol,
+                timestamp=center.start,
+                price=center.high,
+                direction="high",
+                timeframe=center.timeframe,
+                confirmed_at=confirmed_at,
+            ))
 
-            swings.append(
-                SwingPoint(
-                    swing_id=f"SWING_HIGH_{self.counter}",
-                    symbol=center.symbol,
-                    timestamp=center.start,
-                    price=center.high,
-                    direction="high",
-                    timeframe=center.timeframe,
-                )
-            )
-
-        if is_swing_low:
-
+        if all(center.low < other.low for other in neighbors):
             self.counter += 1
-
-            swings.append(
-                SwingPoint(
-                    swing_id=f"SWING_LOW_{self.counter}",
-                    symbol=center.symbol,
-                    timestamp=center.start,
-                    price=center.low,
-                    direction="low",
-                    timeframe=center.timeframe,
-                )
-            )
+            swings.append(SwingPoint(
+                swing_id=f"SWING_LOW_{self.counter}",
+                symbol=center.symbol,
+                timestamp=center.start,
+                price=center.low,
+                direction="low",
+                timeframe=center.timeframe,
+                confirmed_at=confirmed_at,
+            ))
 
         return swings

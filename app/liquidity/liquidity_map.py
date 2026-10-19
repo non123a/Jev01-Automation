@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -33,7 +33,7 @@ class LiquidityMap:
             price=swing.price,
             direction=swing.direction,
             timeframe=swing.timeframe,
-            created_at=swing.timestamp,
+            created_at=swing.confirmed_at,
         )
 
         self.levels[level.level_id] = level
