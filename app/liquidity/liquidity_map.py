@@ -16,6 +16,8 @@ class ActiveLiquidity:
 
     timeframe: str
     created_at: datetime
+    candle_time: datetime | None = None
+    confirmed_at: datetime | None = None
 
     active: bool = True
 
@@ -34,6 +36,8 @@ class LiquidityMap:
             direction=swing.direction,
             timeframe=swing.timeframe,
             created_at=swing.confirmed_at,
+            candle_time=swing.timestamp,
+            confirmed_at=swing.confirmed_at,
         )
 
         self.levels[level.level_id] = level

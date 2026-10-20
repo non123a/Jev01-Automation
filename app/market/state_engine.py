@@ -1,6 +1,8 @@
 from __future__ import annotations
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from datetime import datetime, timezone
+NEW_YORK = ZoneInfo("America/New_York")
 
 from app.market.bars import CompletedBar
 from app.market.models import MarketTick
@@ -13,8 +15,25 @@ class MarketStateEngine:
         self.state: MarketState | None = None
 
     @staticmethod
+    # def get_session(timestamp: datetime) -> str:
+    #     hour = timestamp.astimezone(timezone.utc).hour
+
+    #     if 0 <= hour < 7:
+    #         return "ASIA"
+
+    #     if 7 <= hour < 13:
+    #         return "LONDON"
+
+    #     if 13 <= hour < 21:
+    #         return "NEW_YORK"
+
+    #     return "OFF_SESSION"
     def get_session(timestamp: datetime) -> str:
-        hour = timestamp.astimezone(timezone.utc).hour
+        if timestamp.tzinfo is None:
+            raise ValueError("Session timestamps must be timezone-aware")
+
+        new_york_time = timestamp.astimezone(NEW_YORK)
+        hour = new_york_time.hour
 
         if 0 <= hour < 7:
             return "ASIA"
@@ -26,7 +45,6 @@ class MarketStateEngine:
             return "NEW_YORK"
 
         return "OFF_SESSION"
-
     @staticmethod
     def minute_start(timestamp: datetime) -> datetime:
         return timestamp.replace(
